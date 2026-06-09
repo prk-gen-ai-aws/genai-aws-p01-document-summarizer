@@ -1,0 +1,38 @@
+# ── Credentials & secrets (NEVER commit these)
+.env
+*.pem
+*.key
+
+# ── Terraform state & local cache
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+IaC/terraform/terraform.tfvars
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+
+# ── CloudFormation
+IaC/cloudformation/parameters.json
+
+# ── Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# ── Lambda build artifacts
+lambda/package/
+lambda/*.zip
+
+# ── OS & editor
+.DS_Store
+.vscode/settings.json
+*.swp
+*.swo
+.idea/
