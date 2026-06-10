@@ -1,20 +1,24 @@
-# ── Credentials & secrets (NEVER commit these)
-.env
+# ── Credentials & secrets
+v1/.env
+**/.env
 *.pem
 *.key
 
-# ── Terraform state & local cache
-.terraform/
-terraform.tfstate
-terraform.tfstate.backup
-IaC/terraform/terraform.tfvars
-*.tfplan
+# ── Terraform
+v1/IaC/terraform/.terraform/
+v1/IaC/terraform/terraform.tfstate
+v1/IaC/terraform/terraform.tfstate.backup
+v1/IaC/terraform/terraform.tfvars
+v1/IaC/terraform/*.tfplan
 crash.log
 override.tf
-override.tf.json
 
 # ── CloudFormation
-IaC/cloudformation/parameters.json
+v1/IaC/cloudformation/parameters.json
+
+# ── Lambda build artifacts (never commit)
+v1/lambda/package/
+v1/lambda/*.zip
 
 # ── Python
 __pycache__/
@@ -26,9 +30,9 @@ venv/
 dist/
 build/
 
-# ── Lambda build artifacts
-lambda/package/
-lambda/*.zip
+# ── Project outputs
+v1/outputs.txt
+outputs.txt
 
 # ── OS & editor
 .DS_Store
@@ -36,4 +40,4 @@ lambda/*.zip
 *.swp
 *.swo
 .idea/
-outputs.txt
+v1/IaC/terraform/backend.tfvars
