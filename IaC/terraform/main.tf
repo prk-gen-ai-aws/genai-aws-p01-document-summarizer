@@ -20,6 +20,19 @@ locals {
 }
 
 # ============================================================
+# SSM Parameter — Bedrock model ID (single source of truth)
+# ============================================================
+resource "aws_ssm_parameter" "bedrock_model_id" {
+  name        = "/prk/genai/p01/bedrock-model-id"
+  type        = "String"
+  value       = var.bedrock_model_id
+  description = "Bedrock model ID for P01 document summarizer"
+  overwrite   = true
+
+  tags = local.common_tags
+}
+
+# ============================================================
 # S3 Bucket — document storage
 # ============================================================
 resource "aws_s3_bucket" "documents" {
@@ -92,12 +105,25 @@ resource "aws_iam_role_policy" "lambda_custom" {
         Resource = "${aws_s3_bucket.documents.arn}/*"
       },
       {
+        Sid    = "SSMReadModelId"
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter"
+        ]
+        Resource = "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/prk/genai/p01/*"
+      },
+      {
         Sid    = "BedrockInvokeModel"
         Effect = "Allow"
         Action = [
           "bedrock:InvokeModel"
         ]
-        Resource = "arn:aws:bedrock:${var.aws_region}::foundation-model/${var.bedrock_model_id}"
+        Resource = [
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/*",
+          "arn:aws:bedrock:*::foundation-model/*",
+          "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:inference-profile/*",
+          "arn:aws:bedrock:us-east-1::inference-profile/*"
+        ]
       }
     ]
   })
@@ -124,9 +150,9 @@ resource "aws_lambda_function" "summarizer" {
 
   environment {
     variables = {
-      S3_BUCKET_NAME   = aws_s3_bucket.documents.id
-      BEDROCK_MODEL_ID = var.bedrock_model_id
-      AWS_REGION_NAME  = var.aws_region
+      S3_BUCKET_NAME  = aws_s3_bucket.documents.id
+      SSM_MODEL_PARAM = aws_ssm_parameter.bedrock_model_id.name
+      AWS_REGION_NAME = var.aws_region
     }
   }
 

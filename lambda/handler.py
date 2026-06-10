@@ -1,6 +1,7 @@
 """
 Project 1 — AI Document Summarizer
 Lambda Handler — orchestrates S3 read + Bedrock summarization
+Model ID read from SSM Parameter Store — single source of truth
 """
 
 import json
@@ -10,12 +11,19 @@ import PyPDF2
 import io
 
 # ── AWS clients ──
-s3_client = boto3.client('s3', region_name=os.environ.get('AWS_REGION_NAME', 'us-east-1'))
-bedrock_client = boto3.client('bedrock-runtime', region_name=os.environ.get('AWS_REGION_NAME', 'us-east-1'))
+region = os.environ.get('AWS_REGION_NAME', 'us-east-1')
+s3_client = boto3.client('s3', region_name=region)
+bedrock_client = boto3.client('bedrock-runtime', region_name=region)
+ssm_client = boto3.client('ssm', region_name=region)
 
 # ── Environment variables ──
 S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
-BEDROCK_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID', 'anthropic.claude-3-sonnet-20240229-v1:0')
+SSM_MODEL_PARAM = os.environ.get('SSM_MODEL_PARAM', '/prk/genai/p01/bedrock-model-id')
+
+def get_model_id() -> str:
+    """Read model ID from SSM Parameter Store — single source of truth."""
+    response = ssm_client.get_parameter(Name=SSM_MODEL_PARAM)
+    return response['Parameter']['Value']
 
 # ── Summary length prompts ──
 SUMMARY_PROMPTS = {
@@ -41,7 +49,6 @@ def extract_text_from_s3(bucket: str, key: str) -> str:
     response = s3_client.get_object(Bucket=bucket, Key=key)
     content = response['Body'].read()
 
-    # Handle PDF files
     if key.lower().endswith('.pdf'):
         pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
         text = ''
@@ -49,7 +56,6 @@ def extract_text_from_s3(bucket: str, key: str) -> str:
             text += page.extract_text() + '\n'
         return text.strip()
 
-    # Handle text files
     return content.decode('utf-8').strip()
 
 
@@ -69,8 +75,8 @@ Document content:
 Summary:"""
 
 
-def invoke_bedrock(prompt: str) -> str:
-    """Call Amazon Bedrock Claude 3 Sonnet and return the summary."""
+def invoke_bedrock(prompt: str, model_id: str) -> str:
+    """Call Amazon Bedrock and return the summary."""
     body = json.dumps({
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": 1024,
@@ -84,7 +90,7 @@ def invoke_bedrock(prompt: str) -> str:
     })
 
     response = bedrock_client.invoke_model(
-        modelId=BEDROCK_MODEL_ID,
+        modelId=model_id,
         body=body,
         contentType='application/json',
         accept='application/json'
@@ -110,6 +116,9 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 's3_key is required'})
             }
 
+        # Get model ID from SSM — single source of truth
+        model_id = get_model_id()
+
         # Extract text from S3
         text = extract_text_from_s3(S3_BUCKET_NAME, s3_key)
 
@@ -122,7 +131,7 @@ def lambda_handler(event, context):
 
         # Build prompt and call Bedrock
         prompt = build_prompt(text, doc_type, summary_length)
-        summary = invoke_bedrock(prompt)
+        summary = invoke_bedrock(prompt, model_id)
 
         return {
             'statusCode': 200,
@@ -134,7 +143,8 @@ def lambda_handler(event, context):
                 'summary': summary,
                 'doc_type': doc_type,
                 'summary_length': summary_length,
-                's3_key': s3_key
+                's3_key': s3_key,
+                'model_id': model_id
             })
         }
 
