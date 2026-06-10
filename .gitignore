@@ -36,3 +36,4 @@ lambda/*.zip
 *.swp
 *.swo
 .idea/
+outputs.txt
