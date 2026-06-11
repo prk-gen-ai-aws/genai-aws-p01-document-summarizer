@@ -27,9 +27,9 @@ def get_model_id() -> str:
 
 # ── Summary length prompts ──
 SUMMARY_PROMPTS = {
-    'short': 'Provide a concise summary in 3-5 sentences.',
-    'medium': 'Provide a comprehensive summary in 2-3 paragraphs covering the main points.',
-    'detailed': 'Provide a detailed summary covering all key sections, main findings, and important details.'
+    'short': 'Provide a concise summary in strictly 50-75 words. No more than 75 words.',
+    'medium': 'Provide a summary in strictly 100-150 words. No more than 150 words.',
+    'detailed': 'Provide a detailed summary in strictly 200-250 words. No more than 250 words.'
 }
 
 # ── Document type prompts ──
