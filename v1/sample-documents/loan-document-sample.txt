@@ -1,0 +1,32 @@
+LOAN AGREEMENT
+
+Borrower: Maria Garcia
+Lender: First National Bank
+Loan Amount: $350,000
+Loan Type: 30-Year Fixed Rate Mortgage
+Interest Rate: 6.75% APR
+Property Address: 1234 Elm Street, Springfield
+
+LOAN TERMS:
+This mortgage loan is secured by the property located at the above address. 
+The borrower agrees to make 360 monthly payments of $2,270.91, covering 
+principal and interest. 
+
+DOWN PAYMENT:
+Borrower has provided a down payment of $70,000 (20% of purchase price), 
+resulting in a loan-to-value ratio of 80%.
+
+ESCROW:
+Monthly escrow payment of $450 for property taxes and homeowner's insurance 
+will be collected in addition to principal and interest.
+
+PREPAYMENT:
+Borrower may prepay this loan in whole or in part without penalty at any time.
+
+DEFAULT:
+Failure to make payments within 30 days of due date constitutes default. 
+Lender may pursue foreclosure proceedings after 90 days of continuous default.
+
+CLOSING COSTS:
+Total closing costs of $8,500 include origination fee ($3,500), appraisal 
+($600), title insurance ($1,200), and other fees ($3,200).

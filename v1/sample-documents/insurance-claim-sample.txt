@@ -1,0 +1,27 @@
+INSURANCE CLAIM REPORT
+Claim Number: CLM-2024-00123
+Date of Incident: March 15, 2024
+Policy Number: POL-789456
+Policyholder: Jane Smith
+
+INCIDENT DESCRIPTION:
+On March 15, 2024, the insured vehicle was involved in a rear-end collision 
+at the intersection of Main Street and Oak Avenue. The claimant was stopped 
+at a red light when struck from behind by another vehicle traveling at 
+approximately 25 mph. The impact caused significant damage to the rear bumper, 
+trunk, and rear lighting assembly. No injuries were reported at the scene.
+
+DAMAGE ASSESSMENT:
+Rear bumper replacement: $1,200
+Trunk lid repair: $800
+Tail light assembly: $450
+Labor costs: $600
+Total estimated damage: $3,050
+
+COVERAGE DETAILS:
+Comprehensive coverage applies. Deductible: $500.
+Estimated payout: $2,550
+
+ADJUSTER NOTES:
+Photos taken at scene confirm damage consistent with described incident.
+Police report filed: PR-2024-5567. Claim approved for processing.

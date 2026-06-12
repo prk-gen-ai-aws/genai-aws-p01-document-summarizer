@@ -1,0 +1,34 @@
+SOFTWARE LICENSE AGREEMENT
+
+This Software License Agreement ("Agreement") is entered into as of 
+January 1, 2024, between TechCorp Inc. ("Licensor") and ClientCo LLC 
+("Licensee").
+
+1. GRANT OF LICENSE
+Licensor grants Licensee a non-exclusive, non-transferable license to use 
+the Software for internal business purposes only, limited to 50 named users.
+
+2. TERM
+This Agreement shall remain in effect for 24 months from the Effective Date, 
+automatically renewing for successive 12-month terms unless either party 
+provides 60 days written notice of non-renewal.
+
+3. FEES
+Licensee shall pay Licensor an annual license fee of $120,000, payable 
+quarterly in advance. Late payments accrue interest at 1.5% per month.
+
+4. CONFIDENTIALITY
+Both parties agree to maintain confidentiality of proprietary information 
+disclosed during the term of this Agreement and for 3 years thereafter.
+
+5. TERMINATION
+Either party may terminate this Agreement for material breach with 30 days 
+written notice if the breach remains uncured. Licensor may terminate 
+immediately for non-payment exceeding 60 days.
+
+6. LIMITATION OF LIABILITY
+Licensor's total liability under this Agreement shall not exceed the total 
+fees paid by Licensee in the preceding 12 months.
+
+7. GOVERNING LAW
+This Agreement shall be governed by the laws of the State of Delaware.
