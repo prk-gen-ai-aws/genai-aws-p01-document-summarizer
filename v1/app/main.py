@@ -8,6 +8,7 @@ import os
 import json
 from dotenv import load_dotenv
 from bedrock_client import upload_to_s3, call_summarize_api
+import requests
 
 load_dotenv()
 
@@ -26,13 +27,6 @@ DOC_TYPES = {
     "Loan Document": "loan_document",
     "Legal Contract": "legal_contract",
     "Research Report": "research_report"
-}
-
-# ── Summary length mapping ──
-SUMMARY_LENGTHS = {
-    "Short (50-75 words)": "short",
-    "Medium (100-150 words)": "medium",
-    "Detailed (200-250 words)": "detailed"
 }
 
 # ── Sidebar navigation ──
@@ -71,13 +65,7 @@ if page == "Try it out":
             help="Supported formats: PDF, TXT. Maximum size: 10MB."
         )
 
-        st.subheader("3. Choose summary length")
-        summary_length_label = st.selectbox(
-            "Summary length",
-            list(SUMMARY_LENGTHS.keys()),
-            label_visibility="collapsed"
-        )
-        summary_length = SUMMARY_LENGTHS[summary_length_label]
+        summary_length = "medium"
 
         st.markdown("---")
         summarize_btn = st.button(
@@ -91,9 +79,13 @@ if page == "Try it out":
 
         if summarize_btn:
             if not uploaded_file:
-                st.error("Please upload a document first.")
+                st.error("📁 Please upload a document first.")
+            elif uploaded_file.size == 0:
+                st.error("📄 The uploaded file is empty. Please choose a different file.")
+            elif uploaded_file.size > 10 * 1024 * 1024:
+                st.error(f"📦 File too large ({uploaded_file.size / (1024*1024):.1f}MB). Maximum size is 10MB.")
             else:
-                with st.spinner("Analyzing document..."):
+                with st.spinner("Analyzing document... this may take 5-15 seconds"):
                     try:
                         # Read file
                         file_bytes = uploaded_file.read()
@@ -111,20 +103,31 @@ if page == "Try it out":
 
                         # result is already unwrapped by bedrock_client
                         if 'summary' in result:
-                            st.success("Summary generated successfully!")
+                            st.success("✅ Summary generated successfully!")
                             st.markdown(result['summary'])
                             st.markdown("---")
-                            st.caption(f"Model: {result.get('model_id', 'Claude Haiku 4.5')} · {summary_length_label}")
+                            st.caption(f"Model: {result.get('model_id', 'Claude Haiku 4.5')}")
+                        elif 'error' in result:
+                            error_msg = result['error']
+                            if 'extract text' in error_msg.lower():
+                                st.error("📄 Could not extract text from this document. It may be a scanned image or corrupted file.")
+                            elif 's3_key is required' in error_msg.lower():
+                                st.error("📁 Upload failed. Please try again.")
+                            else:
+                                st.error(f"⚠️ Error: {error_msg}")
+                        elif 'message' in result and 'timed out' in str(result.get('message', '')).lower():
+                            st.error("⏱️ The request took too long to process. Try a shorter document or use Short/Medium summary length for large documents.")
                         else:
-                            st.error(f"Error: {result.get('error', str(result))}")
+                            st.error(f"⚠️ Unexpected response format: {str(result)[:200]}")
 
+                    except requests.exceptions.Timeout:
+                        st.error("⏱️ Request timed out. The document may be too large or complex. Try a smaller file.")
+                    except requests.exceptions.ConnectionError:
+                        st.error("🔌 Could not connect to the API. Please check your internet connection and try again.")
                     except Exception as e:
-                        st.error(f"Something went wrong: {str(e)}")
+                        st.error(f"⚠️ Something went wrong: {str(e)}")
         else:
-            st.info("Your summary will appear here after you click Generate Summary.")
-            st.markdown("**Supported document types:**")
-            for label in DOC_TYPES.keys():
-                st.markdown(f"- {label}")
+            st.info("👈 Select a document type and upload a file to get started.")
 
 # ============================================================
 # PAGE 2: HOW IT WORKS
@@ -151,7 +154,9 @@ elif page == "How it works":
         st.markdown("""
         **AWS Lambda** receives the request via **API Gateway**.
         It reads your document from S3 and extracts the text content.
-        For PDFs, text is extracted from all pages automatically.
+        For PDFs, the first 15 pages are processed — this covers the
+        most important sections of most reports while keeping
+        response times fast and within API Gateway's 29-second limit.
         """)
 
         st.markdown("### Step 3 — Summarize")

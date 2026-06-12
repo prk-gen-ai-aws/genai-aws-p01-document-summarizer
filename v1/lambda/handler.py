@@ -25,13 +25,6 @@ def get_model_id() -> str:
     response = ssm_client.get_parameter(Name=SSM_MODEL_PARAM)
     return response['Parameter']['Value']
 
-# ── Summary length prompts ──
-SUMMARY_PROMPTS = {
-    'short': 'Provide a concise summary in strictly 50-75 words. No more than 75 words.',
-    'medium': 'Provide a summary in strictly 100-150 words. No more than 150 words.',
-    'detailed': 'Provide a detailed summary in strictly 200-250 words. No more than 250 words.'
-}
-
 # ── Document type prompts ──
 DOCUMENT_TYPE_PROMPTS = {
     'sec_10k': 'This is an SEC 10-K annual report. Focus on: revenue and financial performance, key risk factors, business overview, and management outlook.',
@@ -52,22 +45,21 @@ def extract_text_from_s3(bucket: str, key: str) -> str:
     if key.lower().endswith('.pdf'):
         pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
         text = ''
-        for page in pdf_reader.pages:
-            text += page.extract_text() + '\n'
+        max_pages = min(len(pdf_reader.pages), 15)
+        for i in range(max_pages):
+            text += pdf_reader.pages[i].extract_text() + '\n'
         return text.strip()
 
     return content.decode('utf-8').strip()
 
 
-def build_prompt(text: str, doc_type: str, summary_length: str) -> str:
+def build_prompt(text: str, doc_type: str) -> str:
     """Build a structured prompt for Bedrock."""
     doc_context = DOCUMENT_TYPE_PROMPTS.get(doc_type, DOCUMENT_TYPE_PROMPTS['general'])
-    length_instruction = SUMMARY_PROMPTS.get(summary_length, SUMMARY_PROMPTS['medium'])
 
     return f"""You are an expert document analyst. {doc_context}
 
-Please analyze the following document and provide a summary.
-{length_instruction}
+Please analyze the following document and provide a summary in 75-100 words. Do not include a word count or any meta-commentary in your response — only the summary text itself.
 
 Document content:
 {text[:8000]}
@@ -79,7 +71,7 @@ def invoke_bedrock(prompt: str, model_id: str) -> str:
     """Call Amazon Bedrock and return the summary."""
     body = json.dumps({
         "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 1024,
+        "max_tokens": 400,
         "temperature": 0.3,
         "messages": [
             {
@@ -102,12 +94,13 @@ def invoke_bedrock(prompt: str, model_id: str) -> str:
 
 def lambda_handler(event, context):
     """Main Lambda entry point."""
+    import time
     try:
+        t0 = time.time()
         # Parse request body
         body = json.loads(event.get('body', '{}'))
         s3_key = body.get('s3_key')
         doc_type = body.get('doc_type', 'general')
-        summary_length = body.get('summary_length', 'medium')
 
         if not s3_key:
             return {
@@ -118,9 +111,12 @@ def lambda_handler(event, context):
 
         # Get model ID from SSM — single source of truth
         model_id = get_model_id()
+        print(f"TIMING: SSM lookup took {time.time()-t0:.2f}s")
 
         # Extract text from S3
+        t1 = time.time()
         text = extract_text_from_s3(S3_BUCKET_NAME, s3_key)
+        print(f"TIMING: S3 fetch + text extraction took {time.time()-t1:.2f}s, text length: {len(text)} chars")
 
         if not text:
             return {
@@ -130,8 +126,11 @@ def lambda_handler(event, context):
             }
 
         # Build prompt and call Bedrock
-        prompt = build_prompt(text, doc_type, summary_length)
+        t2 = time.time()
+        prompt = build_prompt(text, doc_type)
         summary = invoke_bedrock(prompt, model_id)
+        print(f"TIMING: Bedrock invoke took {time.time()-t2:.2f}s")
+        print(f"TIMING: total {time.time()-t0:.2f}s")
 
         return {
             'statusCode': 200,
@@ -142,7 +141,6 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'summary': summary,
                 'doc_type': doc_type,
-                'summary_length': summary_length,
                 's3_key': s3_key,
                 'model_id': model_id
             })
