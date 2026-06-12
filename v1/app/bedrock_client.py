@@ -30,13 +30,12 @@ def upload_to_s3(file_bytes: bytes, filename: str) -> str:
     return s3_key
 
 
-def call_summarize_api(s3_key: str, doc_type: str, summary_length: str) -> dict:
+def call_summarize_api(s3_key: str, doc_type: str) -> dict:
     """Call API Gateway to summarize the document."""
     import json
     payload = {
         "s3_key": s3_key,
-        "doc_type": doc_type,
-        "summary_length": summary_length
+        "doc_type": doc_type
     }
     response = requests.post(
         API_GATEWAY_URL,

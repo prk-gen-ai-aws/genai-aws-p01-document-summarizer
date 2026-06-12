@@ -65,8 +65,6 @@ if page == "Try it out":
             help="Supported formats: PDF, TXT. Maximum size: 10MB."
         )
 
-        summary_length = "medium"
-
         st.markdown("---")
         summarize_btn = st.button(
             "Generate Summary",
@@ -95,11 +93,7 @@ if page == "Try it out":
                         s3_key = upload_to_s3(file_bytes, filename)
 
                         # Call API Gateway
-                        result = call_summarize_api(
-                            s3_key,
-                            doc_type,
-                            summary_length
-                        )
+                        result = call_summarize_api(s3_key, doc_type)
 
                         # result is already unwrapped by bedrock_client
                         if 'summary' in result:
@@ -117,7 +111,7 @@ if page == "Try it out":
                             else:
                                 st.error(f"⚠️ Error: {error_msg}")
                         elif 'message' in result and 'timed out' in str(result.get('message', '')).lower():
-                            st.error("⏱️ The request took too long to process. Try a shorter document or use Short/Medium summary length for large documents.")
+                            st.error("⏱️ The request took too long to process. Try a smaller document (under 15 pages recommended).")
                         else:
                             st.error(f"⚠️ Unexpected response format: {str(result)[:200]}")
 
@@ -276,7 +270,7 @@ elif page == "About":
         **Gen AI Engineering:**
         - Amazon Bedrock API integration
         - Document-type-aware prompting
-        - Configurable summary length
+        - Document-type-aware AI prompting
         - Model-agnostic design via SSM
         """)
 
