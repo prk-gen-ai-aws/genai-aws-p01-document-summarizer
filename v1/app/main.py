@@ -104,7 +104,8 @@ if page == "Try it out":
                         # result is already unwrapped by bedrock_client
                         if 'summary' in result:
                             st.success("✅ Summary generated successfully!")
-                            st.markdown(result['summary'])
+                            escaped_summary = result['summary'].replace('$', '\\$')
+                            st.markdown(escaped_summary)
                             st.markdown("---")
                             st.caption(f"Model: {result.get('model_id', 'Claude Haiku 4.5')}")
                         elif 'error' in result:
