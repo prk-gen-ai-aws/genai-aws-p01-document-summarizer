@@ -1,0 +1,22 @@
+[
+  {
+    "ParameterKey": "ProjectName",
+    "ParameterValue": "p01-v2-doc-sum"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "AccountSuffix",
+    "ParameterValue": "last-4-digits-of-your-account-id"
+  },
+  {
+    "ParameterKey": "DeploymentVersion",
+    "ParameterValue": "v1"
+  },
+  {
+    "ParameterKey": "BedrockModelId",
+    "ParameterValue": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  }
+]

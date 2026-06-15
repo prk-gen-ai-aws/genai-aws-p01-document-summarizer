@@ -1,0 +1,229 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Project 1 v2 - AI Document Summarizer
+  Serverless pipeline: S3 + IAM + Lambda + API Gateway + SSM
+  CloudFormation equivalent of v2/IaC/terraform/main.tf
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: p01-v2-doc-sum
+    Description: Project identifier used in all resource names
+
+  Environment:
+    Type: String
+    Default: dev
+    Description: Deployment environment
+
+  AccountSuffix:
+    Type: String
+    Default: "5955"
+    Description: Last 4 digits of your AWS account ID for S3 bucket uniqueness
+
+  DeploymentVersion:
+    Type: String
+    Default: "v1"
+    Description: Increment (v2, v3) if recreating stack after destroy
+
+  BedrockModelId:
+    Type: String
+    Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    Description: Amazon Bedrock inference profile ID
+
+Resources:
+
+  DocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-${Environment}-docs-${AccountSuffix}-${DeploymentVersion}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+        - Key: Version
+          Value: !Ref DeploymentVersion
+
+  BedrockModelParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/prk/genai/${ProjectName}-cf/bedrock-model-id"
+      Type: String
+      Value: !Ref BedrockModelId
+      Description: Bedrock model ID for P01 v2 CF document summarizer
+      Tags:
+        Project: !Ref ProjectName
+        Environment: !Ref Environment
+        ManagedBy: CloudFormation
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-lambda-role-cf"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-${Environment}-lambda-policy-cf"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: S3ReadWriteDocuments
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${DocumentsBucket.Arn}/*"
+              - Sid: BedrockInvokeModel
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/*"
+                  - !Sub "arn:aws:bedrock:*::foundation-model/*"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/*"
+                  - "arn:aws:bedrock:us-east-1::inference-profile/*"
+              - Sid: SSMReadModelId
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prk/genai/*"
+              - Sid: MarketplaceSubscription
+                Effect: Allow
+                Action:
+                  - aws-marketplace:ViewSubscriptions
+                  - aws-marketplace:Subscribe
+                  - aws-marketplace:Unsubscribe
+                Resource: "*"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  SummarizerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-summarizer-cf"
+      Runtime: python3.12
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': 'Placeholder - deploy real code after stack creation'
+              }
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref DocumentsBucket
+          SSM_MODEL_PARAM: !Ref BedrockModelParameter
+          AWS_REGION_NAME: !Ref AWS::Region
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  SummarizerApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${ProjectName}-${Environment}-api-cf"
+      Description: Document Summarizer API (CloudFormation)
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  SummarizeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref SummarizerApi
+      ParentId: !GetAtt SummarizerApi.RootResourceId
+      PathPart: summarize
+
+  SummarizeMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref SummarizerApi
+      ResourceId: !Ref SummarizeResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - LambdaArn: !GetAtt SummarizerFunction.Arn
+
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: SummarizeMethod
+    Properties:
+      RestApiId: !Ref SummarizerApi
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref SummarizerApi
+      DeploymentId: !Ref ApiDeployment
+      StageName: !Ref Environment
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt SummarizerFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SummarizerApi}/*/*"
+
+Outputs:
+  ApiGatewayUrl:
+    Description: API Gateway endpoint URL - add to .env as API_GATEWAY_URL
+    Value: !Sub "https://${SummarizerApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/summarize"
+
+  S3BucketName:
+    Description: S3 bucket name - add to .env as S3_BUCKET_NAME
+    Value: !Ref DocumentsBucket
+
+  LambdaFunctionName:
+    Description: Lambda function name
+    Value: !Ref SummarizerFunction
+
+  LambdaFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt SummarizerFunction.Arn
+
+  SSMParameterName:
+    Description: SSM parameter name for Bedrock model ID
+    Value: !Ref BedrockModelParameter
