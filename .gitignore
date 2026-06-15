@@ -6,6 +6,23 @@ v1/.env
 
 # ── Terraform
 v1/IaC/terraform/.terraform/
+v2/IaC/terraform/.terraform/
+v1/IaC/terraform/terraform.tfstate
+v2/IaC/terraform/terraform.tfstate
+v1/IaC/terraform/terraform.tfstate.backup
+v2/IaC/terraform/terraform.tfstate.backup
+v1/IaC/terraform/terraform.tfvars
+v2/IaC/terraform/terraform.tfvars
+v1/IaC/terraform/backend.tfvars
+v2/IaC/terraform/backend.tfvars
+v1/IaC/terraform/*.tfplan
+v2/IaC/terraform/*.tfplan
+
+# ── Lambda build artifacts
+v1/lambda/package/
+v2/lambda/package/
+v1/lambda/*.zip
+v2/lambda/*.zip
 v1/IaC/terraform/terraform.tfstate
 v1/IaC/terraform/terraform.tfstate.backup
 v1/IaC/terraform/terraform.tfvars

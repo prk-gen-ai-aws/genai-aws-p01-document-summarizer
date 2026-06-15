@@ -1,0 +1,8 @@
+# Copy this file to terraform.tfvars and fill in your values
+# terraform.tfvars is gitignored — NEVER commit it
+
+aws_region     = "us-east-1"
+aws_account_id = "your-12-digit-account-id-here"
+project_name   = "p01-doc-summarizer"
+environment    = "dev"
+bedrock_model_id = "anthropic.claude-3-sonnet-20240229-v1:0"
