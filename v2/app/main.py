@@ -211,7 +211,12 @@ elif page == "Architecture":
     provisioned as code using **Terraform** and **CloudFormation**.
     """)
 
-    st.info("📐 Architecture diagram will be added here on Day 12.")
+    import os
+    diagram_path = os.path.join(os.path.dirname(__file__), '..', 'docs', 'architecture-v2.svg')
+    if os.path.exists(diagram_path):
+        st.image(diagram_path)
+    else:
+        st.info("Architecture diagram: v2/docs/architecture-v2.svg")
 
     st.markdown("---")
     st.markdown("### Component breakdown")
