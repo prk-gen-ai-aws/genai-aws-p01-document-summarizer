@@ -1,7 +1,7 @@
 # AI Document Summarizer
 Serverless document intelligence pipeline on AWS powered by Amazon Bedrock.
 
-A Streamlit web app that summarizes any document using AI. Upload a PDF or TXT file, select the document type, and get a concise AI-generated summary in seconds.
+A Streamlit web app that summarizes any document using AI. Upload a PDF or TXT file, select the document type, and get a concise AI-generated summary in under 10 seconds.
 
 Supported document types: SEC Filings (10-K / 10-Q), Insurance Claims, Loan Documents, Legal Contracts, Research Reports, General Documents.
 
@@ -27,13 +27,12 @@ Note: The Streamlit app runs locally on your machine. Only the backend (Lambda, 
 
 ## Architecture
 
-Architecture diagram: v2/docs/architecture-v2.png
-Note: Diagram is generated after deployment and added to v2/docs/
+Architecture diagram: v2/docs/architecture-v2.svg
 
 Components:
 - Streamlit (local) sends POST request to API Gateway
 - API Gateway triggers Lambda
-- Lambda reads document from S3, calls Bedrock via SSM model ID
+- Lambda reads document from S3, fetches model ID from SSM, then calls Bedrock
 - Bedrock (Claude Haiku 4.5) returns summary
 - Summary travels back through Lambda and API Gateway to Streamlit
 
@@ -55,6 +54,9 @@ Components:
       docs/                      <- architecture diagrams
     v1/                          <- reference only (see VERSIONS.md)
     VERSIONS.md                  <- version history
+
+    .streamlit/                  <- project root level
+      config.toml                <- sets 10MB upload limit
 
 ---
 
@@ -98,6 +100,7 @@ Key difference on destroy and recreate:
 - AWS account with CLI configured (aws configure)
 - Python 3.12+
 - Terraform installed (for Terraform deployment only)
+- The repo includes .env.example at the root — copy it to .env after deployment and fill in your values
 - First-time Bedrock activation (one-time per AWS account):
   Go to AWS Console -> Amazon Bedrock -> Playgrounds -> Chat
   Select Claude Haiku 4.5 -> send any message
@@ -105,42 +108,82 @@ Key difference on destroy and recreate:
 
 ---
 
-## Quick Start
+## Fork and Deploy - Complete Guide
+
+If you are forking this repo and deploying to your own AWS account, follow these steps in order.
+
+### Before you start
+
+Step 1 - Create and activate a Python virtual environment:
+
+    python3 -m venv .venv
+    source .venv/bin/activate
+
+Step 2 - Build the Lambda deployment package:
+
+    pip install PyPDF2 -t v2/lambda/package/
+    cp v2/lambda/handler.py v2/lambda/package/
+    cd v2/lambda/package
+    zip -r ../handler.zip .
+    cd ../../..
+
+This builds the Lambda zip file needed for both Terraform and CloudFormation deployments.
+
+---
 
 ### Option A: Deploy with Terraform
 
-Step 1 - Set up shared Terraform backend (first time only):
-Clone and deploy: https://github.com/prk-gen-ai-aws/terraform-backend
+Step 1 - Set up the shared Terraform backend first (one-time):
 
-Step 2 - Deploy infrastructure:
+Fork and deploy this repo first: https://github.com/prk-gen-ai-aws/terraform-backend
+This creates the S3 bucket used to store Terraform state. Follow the README in that repo.
+
+Step 2 - Fill in your values:
 
     cd v2/IaC/terraform
     cp terraform.tfvars.example terraform.tfvars
-    # Edit terraform.tfvars with your values
+
+Edit terraform.tfvars and fill in:
+- aws_region: your AWS region (e.g. us-east-1)
+- aws_account_id: your 12-digit AWS account ID
+- project_name: keep as-is or customize
+- environment: dev
+- bedrock_model_id: us.anthropic.claude-haiku-4-5-20251001-v1:0
+  (verify this is active in your account: aws bedrock list-inference-profiles --region us-east-1)
+
     cp backend.tfvars.example backend.tfvars
-    # Edit backend.tfvars with your state bucket name
+
+Edit backend.tfvars and fill in:
+- bucket: name of the S3 bucket created by your terraform-backend deployment
+
+Step 3 - Deploy infrastructure:
+
     terraform init -backend-config=backend.tfvars
     terraform plan
     terraform apply
 
-Step 3 - Get outputs:
-
-    terraform output
-
 Step 4 - Deploy Lambda code:
 
-    cd v2/lambda/package
-    zip -r ../handler.zip .
     cd ../../..
-    # Use lambda_function_name from terraform output
+
+    # Get your Lambda function name from Terraform output first:
+    terraform -chdir=v2/IaC/terraform output lambda_function_name
+
+    # Then deploy using the name returned above:
     aws lambda update-function-code --function-name <lambda_function_name> --zip-file fileb://v2/lambda/handler.zip
 
 Step 5 - Configure environment:
 
     cp .env.example .env
-    # Fill in API_GATEWAY_URL and S3_BUCKET_NAME from terraform output
 
-### Option B: Deploy with CloudFormation
+Edit .env and fill in:
+- AWS_REGION: your region
+- S3_BUCKET_NAME: from terraform output s3_bucket_name
+- API_GATEWAY_URL: from terraform output api_gateway_url
+
+---
+
+### Option B: Deploy with CloudFormation (simpler - no backend setup needed)
 
 Step 1 - Deploy stack:
 
@@ -148,7 +191,7 @@ Step 1 - Deploy stack:
       --template-file v2/IaC/cloudformation/template.yaml \
       --stack-name p01-doc-sum-dev \
       --parameter-overrides \
-        AccountSuffix=<last-4-digits-of-account-id> \
+        AccountSuffix=<last-4-digits-of-your-account-id> \
         DeploymentVersion=v1 \
       --capabilities CAPABILITY_NAMED_IAM \
       --region us-east-1
@@ -159,24 +202,27 @@ Step 2 - Get outputs:
 
 Step 3 - Deploy Lambda code:
 
-    cd v2/lambda/package
-    zip -r ../handler.zip .
-    cd ../../..
-    # Use LambdaFunctionName from stack outputs (Step 2)
-    aws lambda update-function-code --function-name <LambdaFunctionName-from-output> --zip-file fileb://v2/lambda/handler.zip
+    # Get LambdaFunctionName from Step 2 outputs, then deploy:
+    aws lambda update-function-code --function-name <LambdaFunctionName from Step 2> --zip-file fileb://v2/lambda/handler.zip
 
 Step 4 - Configure environment:
 
     cp .env.example .env
-    # Fill in API_GATEWAY_URL and S3_BUCKET_NAME from stack outputs
+
+Edit .env and fill in:
+- AWS_REGION: your region
+- S3_BUCKET_NAME: from stack outputs (S3BucketName)
+- API_GATEWAY_URL: from stack outputs (ApiGatewayUrl)
+
+---
 
 ### Run the App (same for both options)
 
-    source .venv/bin/activate      # activate virtual environment first
+    source .venv/bin/activate
     pip install -r v2/app/requirements.txt
     streamlit run v2/app/main.py
 
-Note: Upload limit is set to 10MB via .streamlit/config.toml (located at project root)
+Note: Upload limit is set to 10MB via .streamlit/config.toml at project root.
 
 ---
 
@@ -220,7 +266,7 @@ Security:
 
 Scalability:
 - Set Lambda reserved concurrency to prevent runaway costs
-- Request Bedrock quota increases for high-volume workloads
+- Request Bedrock throughput quota increases for high-volume document processing
 - Consider S3 multipart upload for documents larger than 10MB
 
 High Availability:
